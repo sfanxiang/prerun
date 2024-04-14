@@ -9,9 +9,15 @@ from multiprocessing import Pipe, Process
 import psutil
 
 
+def sigint_once_handler(signum, frame):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    return signal.default_int_handler(signum, frame)
+
+
 def run(stdio, preloader, conn):
     os.setpgid(0, 0)
     os.dup2(sys.stdin.fileno(), 0, inheritable=True)
+    signal.signal(signal.SIGINT, signal.default_int_handler)
 
     runpy.run_path(preloader)
 
@@ -34,6 +40,8 @@ def launch_process(stdio, preloader):
 
 
 def real_main(stdio):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
     os.dup2(stdio[0], 0, inheritable=True)
     sys.stdin.close()
     sys.stdin = open(0, closefd=False)
@@ -51,16 +59,20 @@ def real_main(stdio):
         while True:
             while not runner:
                 try:
-                    s = input("Next task > ")
-                    runner = shlex.split(s)
-                except ValueError as e:
-                    sys.stderr.write("Error: " + str(e) + "\n")
-                    continue
-                except EOFError:
-                    return
+                    signal.signal(signal.SIGINT, sigint_once_handler)
+                    try:
+                        s = input("Next task > ")
+                    except EOFError:
+                        signal.signal(signal.SIGINT, signal.SIG_IGN)
+                        return
+                    signal.signal(signal.SIGINT, signal.SIG_IGN)
+                    try:
+                        runner = shlex.split(s)
+                    except ValueError as e:
+                        sys.stderr.write("Error: " + str(e) + "\n")
+                        continue
                 except KeyboardInterrupt:
                     print("^C")
-                    pass
 
             proc, conn = processes[0]
             processes.append(launch_process(stdio, preloader))
@@ -69,8 +81,10 @@ def real_main(stdio):
                 os.setpgid(proc.pid, os.getpgid(0))
 
             try:
+                signal.signal(signal.SIGINT, sigint_once_handler)
                 conn.send(runner)
                 proc.join()
+                signal.signal(signal.SIGINT, signal.SIG_IGN)
             except KeyboardInterrupt:
                 if proc.exitcode is None:
                     proc.join(0.5)
@@ -98,15 +112,11 @@ def real_main(stdio):
 
 
 def main():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     stdio = [os.dup(0)]
     os.set_inheritable(stdio[0], True)
 
     p = Process(target=real_main, args=(stdio,))
     p.start()
-    while True:
-        try:
-            p.join()
-            break
-        except KeyboardInterrupt:
-            pass
+    p.join()
     p.close()
