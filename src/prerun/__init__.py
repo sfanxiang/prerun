@@ -90,7 +90,12 @@ def real_main(stdio):
                 signal.signal(signal.SIGINT, signal.SIG_IGN)
             except KeyboardInterrupt:
                 if proc.exitcode is None:
-                    proc.join(0.5)
+                    try:
+                        signal.signal(signal.SIGINT, sigint_once_handler)
+                        proc.join()
+                        signal.signal(signal.SIGINT, signal.SIG_IGN)
+                    except KeyboardInterrupt:
+                        pass
 
             if proc.exitcode is None:
                 parent = psutil.Process(proc.pid)
