@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 import readline
 import runpy
@@ -15,6 +16,7 @@ def sigint_once_handler(signum, frame):
 
 
 def run(stdio, preloader, conn):
+    multiprocessing.set_start_method(None, force=True)
     os.setpgid(0, 0)
     os.dup2(sys.stdin.fileno(), 0, inheritable=True)
     signal.signal(signal.SIGINT, signal.default_int_handler)
@@ -112,6 +114,8 @@ def real_main(stdio):
 
 
 def main():
+    multiprocessing.set_start_method("fork")
+
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     stdio = [os.dup(0)]
     os.set_inheritable(stdio[0], True)
