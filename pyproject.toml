@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "prerun"
+version = "0.1.0"
+description = "Prerun"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+keywords = ["development"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+]
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/sfanxiang/prerun"
+
+[project.scripts]
+prerun = "prerun:main"
