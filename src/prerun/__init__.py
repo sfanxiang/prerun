@@ -85,7 +85,10 @@ def real_main(stdio):
 
             try:
                 signal.signal(signal.SIGINT, sigint_once_handler)
-                conn.send(runner)
+                try:
+                    conn.send(runner)
+                except BrokenPipeError as e:
+                    sys.stderr.write("Error: " + str(e) + "\n")
                 proc.join()
                 signal.signal(signal.SIGINT, signal.SIG_IGN)
             except KeyboardInterrupt:
