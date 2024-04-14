@@ -21,6 +21,7 @@ def run(stdio, preloader, conn):
     os.dup2(sys.stdin.fileno(), 0, inheritable=True)
     signal.signal(signal.SIGINT, signal.default_int_handler)
 
+    sys.argv = [preloader]
     runpy.run_path(preloader)
 
     runner = conn.recv()
