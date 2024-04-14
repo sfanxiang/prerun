@@ -65,16 +65,14 @@ def real_main(stdio):
             proc, conn = processes[0]
             processes.append(launch_process(stdio, preloader))
 
+            if proc.exitcode is None:
+                os.setpgid(proc.pid, os.getpgid(0))
+
             try:
                 conn.send(runner)
                 proc.join()
             except KeyboardInterrupt:
                 if proc.exitcode is None:
-                    parent = psutil.Process(proc.pid)
-                    for child in parent.children(recursive=True):
-                        child.send_signal(signal.SIGINT)
-                    parent.send_signal(signal.SIGINT)
-
                     proc.join(0.5)
 
             if proc.exitcode is None:
