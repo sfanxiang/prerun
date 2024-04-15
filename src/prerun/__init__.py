@@ -9,10 +9,32 @@ from multiprocessing import Pipe, Process
 
 import psutil
 
+SIGINT_PENDING = False
+
+
+def sigint_defer_handler(signum, frame):
+    global SIGINT_PENDING
+    SIGINT_PENDING = True
+
 
 def sigint_once_handler(signum, frame):
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    return signal.default_int_handler(signum, frame)
+    global SIGINT_PENDING
+    signal.signal(signal.SIGINT, sigint_defer_handler)
+    SIGINT_PENDING = False
+    raise KeyboardInterrupt
+
+
+def sigint_defer():
+    signal.signal(signal.SIGINT, sigint_defer_handler)
+
+
+def sigint_once():
+    global SIGINT_PENDING
+    signal.signal(signal.SIGINT, sigint_once_handler)
+    if SIGINT_PENDING:
+        signal.signal(signal.SIGINT, sigint_defer_handler)
+        SIGINT_PENDING = False
+        raise KeyboardInterrupt
 
 
 def run(stdio, preloader, conn):
@@ -43,7 +65,7 @@ def launch_process(stdio, preloader):
 
 
 def real_main(stdio):
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    sigint_defer()
 
     os.dup2(stdio[0], 0, inheritable=True)
     sys.stdin.close()
@@ -62,13 +84,13 @@ def real_main(stdio):
         while True:
             while not runner:
                 try:
-                    signal.signal(signal.SIGINT, sigint_once_handler)
+                    sigint_once()
                     try:
                         s = input("Next task > ")
                     except EOFError:
-                        signal.signal(signal.SIGINT, signal.SIG_IGN)
+                        sigint_defer()
                         return
-                    signal.signal(signal.SIGINT, signal.SIG_IGN)
+                    sigint_defer()
                     try:
                         runner = shlex.split(s)
                     except ValueError as e:
@@ -84,19 +106,19 @@ def real_main(stdio):
                 os.setpgid(proc.pid, os.getpgid(0))
 
             try:
-                signal.signal(signal.SIGINT, sigint_once_handler)
+                sigint_once()
                 try:
                     conn.send(runner)
                 except BrokenPipeError as e:
                     sys.stderr.write("Error: " + str(e) + "\n")
                 proc.join()
-                signal.signal(signal.SIGINT, signal.SIG_IGN)
+                sigint_defer()
             except KeyboardInterrupt:
                 if proc.exitcode is None:
                     try:
-                        signal.signal(signal.SIGINT, sigint_once_handler)
+                        sigint_once()
                         proc.join()
-                        signal.signal(signal.SIGINT, signal.SIG_IGN)
+                        sigint_defer()
                     except KeyboardInterrupt:
                         pass
 
@@ -125,7 +147,7 @@ def real_main(stdio):
 def main():
     multiprocessing.set_start_method("fork")
 
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    sigint_defer()
     stdio = [os.dup(0)]
     os.set_inheritable(stdio[0], True)
 
