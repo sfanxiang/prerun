@@ -172,7 +172,17 @@ def server(args):
     stdio = [os.dup(0)]
     os.set_inheritable(stdio[0], True)
 
-    preloader, num_proc = args[0], int(args[1])
+    if len(args) < 1:
+        sys.stderr.write("Expected server argument.\n\nSee --help for more information.\n\n")
+        return 1
+    preloader = args[0]
+    num_proc = 4
+    if len(args) > 1:
+        try:
+            num_proc = int(args[1])
+        except ValueError:
+            sys.stderr.write("Number of processes must be an integer.\n\nSee --help for more information.\n\n")
+            return 1
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock_path = secrets.token_hex(16)
