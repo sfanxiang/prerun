@@ -1,3 +1,5 @@
+import sys
+
 import prerun
 
-prerun.main()
+sys.exit(prerun.main())
