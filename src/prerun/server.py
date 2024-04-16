@@ -76,9 +76,10 @@ def run(stdio, preloader, conn, socks_to_close):
         conn.sendall(b"\x01")
         assert conn.recv(1) == b"\x01"
     except:
-        for child in proc.children(recursive=True):
-            child.kill()
-        proc.kill()
+        if p.exitcode is None:
+            for child in proc.children(recursive=True):
+                child.kill()
+            proc.kill()
         raise
 
     try:
