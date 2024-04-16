@@ -22,11 +22,8 @@ def run_child(stdio, preloader, conn, files_to_close):
     del files_to_close
 
     multiprocessing.set_start_method(None, force=True)
-    os.setpgid(0, 0)
     os.dup2(sys.stdin.fileno(), 0, inheritable=True)
     signal.signal(signal.SIGINT, signal.default_int_handler)
-
-    conn.send({})
 
     sys.argv = [preloader]
     runpy.run_path(preloader)
@@ -69,7 +66,6 @@ def run(stdio, preloader, conn, socks_to_close):
         data = json.loads(recv_bytes(conn, length).decode("utf-8"))
         pgid = int(data["pgid"])
 
-        c1.recv()
         os.setpgid(0, pgid)
         os.setpgid(p.pid, pgid)
 
