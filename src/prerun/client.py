@@ -27,7 +27,7 @@ def client(args, server):
     assert sock.recv(1) == b"\x01"
     sock.sendall(b"\x01")
 
-    length = int.from_bytes(recv_bytes(sock, 8))
+    length = int.from_bytes(recv_bytes(sock, 8), byteorder="big")
     data = json.loads(recv_bytes(sock, length).decode("utf-8"))
     sock.close()
 

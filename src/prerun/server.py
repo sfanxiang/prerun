@@ -72,7 +72,7 @@ def run(stdio, preloader, conn, socks_to_close):
         return
 
     try:
-        length = int.from_bytes(recv_bytes(conn, 8))
+        length = int.from_bytes(recv_bytes(conn, 8), byteorder="big")
         data = json.loads(recv_bytes(conn, length).decode("utf-8"))
         pgid = int(data["pgid"])
 
