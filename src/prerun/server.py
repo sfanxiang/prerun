@@ -1,3 +1,4 @@
+import code
 import json
 import multiprocessing
 import os
@@ -41,8 +42,17 @@ def run_child(stdio, preloader, conn, files_to_close):
         os.environ[k] = v
     os.chdir(data["cwd"])
 
-    sys.argv = list(data["args"])
-    runpy.run_path(data["args"][0], run_name="__main__")
+    if not data["args"]:
+        import readline
+        import rlcompleter
+
+        code_locals = {}
+        readline.set_completer(rlcompleter.Completer(code_locals).complete)
+        readline.parse_and_bind("tab: complete")
+        code.interact(local=code_locals, exitmsg="")
+    else:
+        sys.argv = list(data["args"])
+        runpy.run_path(data["args"][0], run_name="__main__")
 
 
 def run(stdio, preloader, conn, socks_to_close):
@@ -79,7 +89,8 @@ def run(stdio, preloader, conn, socks_to_close):
         raise
 
     try:
-        sigint_once()
+        if data["args"]:
+            sigint_once()
         try:
             c1.send({"args": data["args"], "cwd": data["cwd"], "environ": data["environ"]})
         except:
