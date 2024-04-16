@@ -4,6 +4,8 @@ import sys
 from .client import client
 from .server import server
 
+SAVED = {}
+
 
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "--help":
