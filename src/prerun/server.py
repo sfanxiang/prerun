@@ -46,11 +46,13 @@ def run_child(stdio, preloader, conn, files_to_close):
         import readline
         import rlcompleter
 
+        sys.path = [""] + sys.path
         code_locals = {}
         readline.set_completer(rlcompleter.Completer(code_locals).complete)
         readline.parse_and_bind("tab: complete")
         code.interact(local=code_locals, exitmsg="")
     else:
+        sys.path = [os.path.dirname(os.path.realpath(data["args"][0]))] + sys.path
         sys.argv = list(data["args"])
         runpy.run_path(data["args"][0], run_name="__main__")
 
