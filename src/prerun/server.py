@@ -51,8 +51,10 @@ def run_child(stdin, preloader, conn, files_to_close):
 
     saved = hide_stdout_stderr()
     sys.argv = [preloader]
-    runpy.run_path(preloader)
-    restore_stdout_stderr(saved)
+    try:
+        runpy.run_path(preloader)
+    finally:
+        restore_stdout_stderr(saved)
 
     data = conn.recv()
     conn.close()
