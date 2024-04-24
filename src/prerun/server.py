@@ -17,7 +17,30 @@ from .recv_bytes import recv_bytes
 from .sigint import sigint_defer, sigint_once
 
 
-def run_child(stdio, preloader, conn, files_to_close):
+def hide_stdout_stderr():
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+
+    stdout_fd = sys.stdout.fileno()
+    stdout_fd2 = os.dup(stdout_fd)
+    os.dup2(devnull_fd, stdout_fd, inheritable=True)
+
+    stderr_fd = sys.stderr.fileno()
+    stderr_fd2 = os.dup(stderr_fd)
+    os.dup2(devnull_fd, stderr_fd, inheritable=True)
+
+    os.close(devnull_fd)
+    return stdout_fd2, stderr_fd2
+
+
+def restore_stdout_stderr(saved):
+    stdout_fd2, stderr_fd2 = saved
+    os.dup2(stdout_fd2, sys.stdout.fileno(), inheritable=True)
+    os.dup2(stderr_fd2, sys.stderr.fileno(), inheritable=True)
+    os.close(stdout_fd2)
+    os.close(stderr_fd2)
+
+
+def run_child(stdin, preloader, conn, files_to_close):
     for f in files_to_close:
         f.close()
     del files_to_close
@@ -26,15 +49,17 @@ def run_child(stdio, preloader, conn, files_to_close):
     os.dup2(sys.stdin.fileno(), 0, inheritable=True)
     signal.signal(signal.SIGINT, signal.default_int_handler)
 
+    saved = hide_stdout_stderr()
     sys.argv = [preloader]
     runpy.run_path(preloader)
+    restore_stdout_stderr(saved)
 
     data = conn.recv()
     conn.close()
 
-    os.dup2(stdio[0], 0, inheritable=True)
-    os.close(stdio[0])
     sys.stdin.close()
+    os.dup2(stdin, 0, inheritable=True)
+    os.close(stdin)
     sys.stdin = open(0, closefd=False)
 
     os.environ.clear()
@@ -57,7 +82,7 @@ def run_child(stdio, preloader, conn, files_to_close):
         runpy.run_path(data["args"][0], run_name="__main__")
 
 
-def run(stdio, preloader, conn, socks_to_close):
+def run(stdin, preloader, conn, socks_to_close):
     sigint_defer()
 
     for s in socks_to_close:
@@ -65,7 +90,7 @@ def run(stdio, preloader, conn, socks_to_close):
     del socks_to_close
 
     c1, c2 = Pipe()
-    p = Process(target=run_child, args=(stdio, preloader, c2, [conn, c1]))
+    p = Process(target=run_child, args=(stdin, preloader, c2, [conn, c1]))
     p.start()
     c2.close()
 
@@ -119,20 +144,20 @@ def run(stdio, preloader, conn, socks_to_close):
     conn.close()
 
 
-def launch_process(stdio, preloader, socks_to_close):
+def launch_process(stdin, preloader, socks_to_close):
     c1, c2 = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
-    p = Process(target=run, args=(stdio, preloader, c2, socks_to_close + [c1]))
+    p = Process(target=run, args=(stdin, preloader, c2, socks_to_close + [c1]))
     p.start()
     c2.close()
     return p, c1
 
 
-def handler(stdio, preloader, num_proc, sock):
+def handler(stdin, preloader, num_proc, sock):
     sigint_defer()
 
     processes = []
     for _ in range(num_proc):
-        processes.append(launch_process(stdio, preloader, [sock] + [x[1] for x in processes]))
+        processes.append(launch_process(stdin, preloader, [sock] + [x[1] for x in processes]))
 
     while True:
         c = None
@@ -164,15 +189,14 @@ def handler(stdio, preloader, num_proc, sock):
                 pass
 
         processes = processes[1:]
-        processes.append(launch_process(stdio, preloader, [sock] + [x[1] for x in processes]))
+        processes.append(launch_process(stdin, preloader, [sock] + [x[1] for x in processes]))
 
 
 def server(args):
     multiprocessing.set_start_method("fork")
 
     sigint_defer()
-    stdio = [os.dup(0)]
-    os.set_inheritable(stdio[0], True)
+    stdin = os.dup(0)
 
     if len(args) < 1:
         sys.stderr.write("Expected server argument.\n\nSee --help for more information.\n\n")
@@ -193,7 +217,7 @@ def server(args):
     sock.listen()
 
     try:
-        p = Process(target=handler, args=(stdio, preloader, num_proc, sock))
+        p = Process(target=handler, args=(stdin, preloader, num_proc, sock))
         p.start()
         sock.close()
 
