@@ -9,7 +9,23 @@ SAVED = {}
 
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "--help":
-        print("Start server:\n\t-s <PRELOADER> [NUM_PROCESSES]\n\nRun Python program:\n\t[FILE [ARG...]]\n")
+        print("""Start server:
+\t-s <PRELOADER> [NUM_PROCESSES]
+
+Test if server is running:
+\t-t
+
+Run Python program:
+\t[FILE [ARG...]]
+""")
+        return 0
+
+    if len(sys.argv) >= 2 and sys.argv[1] == "-t":
+        server_running = "PRERUN_SERVER" in os.environ
+        if server_running:
+            print("Server is running")
+        else:
+            print("No server detected")
         return 0
 
     if len(sys.argv) < 2 or sys.argv[1] != "-s":
